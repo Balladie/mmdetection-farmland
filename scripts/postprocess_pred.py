@@ -1,6 +1,7 @@
 import argparse
 import cv2
 import json
+import os
 import pycocotools.mask as mask_util
 from pathlib import Path
 
@@ -71,9 +72,9 @@ CATEGORIES = [
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input-file", type=str, required=True)
+    parser.add_argument("--input-path", type=str, required=True)
     parser.add_argument("--score-thr", type=float, default=None)
-    parser.add_argument("--output-file", type=str, required=True)
+    parser.add_argument("--output-dir", type=str, required=True)
     return parser.parse_args()
 
 
@@ -94,8 +95,8 @@ def mask2polygon(maskedArr): # https://github.com/hazirbas/coco-json-converter/b
     return segmentation, abs(net_area)
 
 
-def main(args):
-    with open(args.input_file) as f:
+def postprocess(data_path, output_dir):
+    with open(data_path) as f:
         data = json.load(f)
 
     masks_binary = mask_util.decode(data["masks"])
@@ -108,7 +109,7 @@ def main(args):
         data["masks"][i]["area"] = area
 
     data["metadata"] = {
-        "image_id": Path(args.input_file).stem,
+        "image_id": Path(data_path).stem,
         "categories": CATEGORIES,
     }
 
@@ -126,8 +127,20 @@ def main(args):
         data["metadata"]["score_thr"] = args.score_thr
         print(f"Score thresholded: {len(data['labels'])} preds left")
 
-    with open(args.output_file, "w") as f:
+    output_path = os.path.join(output_dir, os.path.basename(data_path))
+    with open(output_path, "w") as f:
         json.dump(data, f, ensure_ascii=False)
+
+
+def main(args):
+    if os.path.isdir(args.input_path):
+        for fn in os.listdir(args.input_path):
+            if ".json" not in fn:
+                continue
+            data_path = os.path.join(args.input_path, fn)
+            postprocess(data_path, args.output_dir)
+    else:
+        postprocess(args.input_path, args.output_dir)
 
 
 if __name__ == "__main__":
