@@ -16,6 +16,8 @@ python scripts/test.py --config configs/mask2former/mask2former_swin-t-p4-w7-224
 
 해상도가 큰 원본 .tif 항공 이미지를 슬라이싱하여 각 타일마다 추론합니다.
 
+사용하는 python 환경에 [sahi](https://github.com/obss/sahi) 가 설치되어 있어야 사용 가능합니다. 
+
 ```bash
 python scripts/test_sahi.py --config configs/mask2former/mask2former_swin-t-p4-w7-224_8xb2-lsj-50e_farmland.py --ckpt [CKPT_PATH] --input-dir [TIF_DIR] --out-dir [OUTPUT_DIR]
 ```
