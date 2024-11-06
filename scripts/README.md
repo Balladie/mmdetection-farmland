@@ -1,6 +1,6 @@
 # 농지
 
-모든 CLI cpmmands는 본 repository의 최상위 경로에서 실행하는 기준입니다.
+모든 CLI commands는 본 repository의 최상위 경로에서 실행하는 기준입니다.
 
 ## 추론
 
