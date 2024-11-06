@@ -17,8 +17,8 @@ CATEGORIES = [
     },
     {
         "id": 1,
-        "name": "주차장",
-        "category_id": "7e704136-b61a-43b3-b267-cf86b70aafb3",
+        "name": "일반시설(건축물)",
+        "category_id": "f925b900-abb1-4eff-954e-6098c61da4af",
         "supercategory": None,
     },
     {
@@ -53,22 +53,34 @@ CATEGORIES = [
     },
     {
         "id": 7,
+        "name": "태양광-시설형(기타시설)",
+        "category_id": "7449c0c6-5a9d-4850-90c6-d5d986bad53f",
+        "supercategory": None,
+    },
+    {
+        "id": 8,
         "name": "농막",
         "category_id": "058da039-9442-4103-878a-f19b7f2ad30d",
         "supercategory": None,
     },
     {
-        "id": 8,
+        "id": 9,
         "name": "임야화농지",
         "category_id": "41e4b368-6dcf-41b9-86ec-8fb8d448f261",
         "supercategory": None,
     },
     {
-        "id": 9,
+        "id": 10,
         "name": "도로",
         "category_id": "856f9fbd-630c-4509-87d3-d4701083cc3f",
         "supercategory": None,
     },
+    {
+        "id": 11,
+        "name": "주차장",
+        "category_id": "7e704136-b61a-43b3-b267-cf86b70aafb3",
+        "supercategory": None,
+    }
 ]
 
 
