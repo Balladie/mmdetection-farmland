@@ -1,6 +1,6 @@
 _base_ = ['./mask2former_r50_8xb2-lsj-50e_farmland-panoptic.py']
 
-num_things_classes = 7
+num_things_classes = 12
 num_stuff_classes = 0
 num_classes = num_things_classes + num_stuff_classes
 image_size = (640, 640)
@@ -81,13 +81,13 @@ train_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         ann_file='annotations/instances_train.json',
-        data_prefix=dict(img='images/train/'),
+        data_prefix=dict(img=''),
         pipeline=train_pipeline))
 val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         ann_file='annotations/instances_val.json',
-        data_prefix=dict(img='images/val/'),
+        data_prefix=dict(img=''),
         pipeline=test_pipeline))
 test_dataloader = val_dataloader
 

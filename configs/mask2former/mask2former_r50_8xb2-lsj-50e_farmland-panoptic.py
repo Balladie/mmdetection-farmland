@@ -213,19 +213,19 @@ optim_wrapper = dict(
     clip_grad=dict(max_norm=0.01, norm_type=2))
 
 # learning policy
-max_iters = 4000
+max_iters = 20000
 param_scheduler = [
     dict(
         type='LinearLR',  # Use linear policy to warmup learning rate
         start_factor=0.001, # The ratio of the starting learning rate used for warmup
         by_epoch=False,  # The warmup learning rate is updated by iteration
         begin=0,  # Start from the first iteration
-        end=max_iters//10),  # End the warmup at the 500th iteration
+        end=max_iters//20),  # End the warmup at the 500th iteration
     dict(
         type='CosineAnnealingLR',
-        begin=max_iters//10,
+        begin=max_iters//20,
         end=max_iters,
-        T_max=max_iters-max_iters//10,
+        T_max=max_iters-max_iters//20,
         by_epoch=False),
 ]
 
@@ -244,14 +244,14 @@ test_cfg = dict(type='TestLoop')
 
 default_hooks = dict(
     logger=dict(
-        type='LoggerHook', interval=50),
+        type='LoggerHook', interval=100),
     checkpoint=dict(
         type='CheckpointHook',
         by_epoch=False,
         save_last=True,
         # max_keep_ckpts=3,
         interval=interval))
-log_processor = dict(type='LogProcessor', window_size=50, by_epoch=False)
+log_processor = dict(type='LogProcessor', window_size=100, by_epoch=False)
 
 # Default setting for scaling LR automatically
 #   - `enable` means enable scaling LR automatically
