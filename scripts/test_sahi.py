@@ -147,5 +147,3 @@ if __name__ == "__main__":
 
         if args.export_vis:
             result.export_visuals(export_dir=output_vis_dir, file_name=Path(fn).stem, rect_th=1, hide_conf=True, hide_labels=True)
-        breakpoint()
-        print()
