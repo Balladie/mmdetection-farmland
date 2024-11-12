@@ -26,6 +26,7 @@ python scripts/test_sahi.py --config configs/mask2former/mask2former_swin-t-p4-w
 
 - `--score-thr`: 최종 결과물에 남길 prediction들의 confidence score 임계점을 설정합니다. 성능에 따라 값을 조절해서 사용합니다.
 - `--export-vis`: 시각화 결과를 같이 출력합니다.
+- `--center-bbox` : bbox 가운데 좌표를 JSON 에 추가합니다.
 
 ## 평가
 
