@@ -83,6 +83,13 @@ CATEGORIES = [
     }
 ]
 
+def center_bbox(bbox):
+    x, y, w, h = bbox
+    return {
+        "x": x + w / 2,
+        "y": y + h / 2,
+    }
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -92,6 +99,7 @@ def parse_args():
     parser.add_argument("--out-dir", type=str, default="out_dirs")
     parser.add_argument("--score-thr", type=float, default=0.3)
     parser.add_argument("--export-vis", action="store_true", default=False)
+    parser.add_argument("--center-bbox", action="store_true", default=False)
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -127,6 +135,7 @@ if __name__ == "__main__":
             perform_standard_pred=False,
         )
         preds = [pred.to_coco_prediction() for pred in result.object_prediction_list]
+
         preds_dict = {
             "metadata": {
                 "image_id": Path(fn).stem,
@@ -140,6 +149,10 @@ if __name__ == "__main__":
                 "area": pred.area,
             } for pred in preds],
         }
+
+        if args.center_bbox:
+            preds_dict["center"] = [center_bbox(bbox) for bbox in preds_dict["bboxes"]]
+            
 
         output_path = os.path.join(output_pred_dir, fn.replace(Path(fn).suffix, ".json"))
         with open(output_path, "w") as f:
