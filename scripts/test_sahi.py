@@ -135,7 +135,6 @@ if __name__ == "__main__":
             perform_standard_pred=False,
         )
         preds = [pred.to_coco_prediction() for pred in result.object_prediction_list]
-
         preds_dict = {
             "metadata": {
                 "image_id": Path(fn).stem,
@@ -153,7 +152,6 @@ if __name__ == "__main__":
         if args.center_bbox:
             preds_dict["center"] = [center_bbox(bbox) for bbox in preds_dict["bboxes"]]
             
-
         output_path = os.path.join(output_pred_dir, fn.replace(Path(fn).suffix, ".json"))
         with open(output_path, "w") as f:
             json.dump(preds_dict, f, indent=4, ensure_ascii=False)
