@@ -213,7 +213,7 @@ optim_wrapper = dict(
     clip_grad=dict(max_norm=0.01, norm_type=2))
 
 # learning policy
-max_iters = 20000
+max_iters = 40000
 param_scheduler = [
     dict(
         type='LinearLR',  # Use linear policy to warmup learning rate
