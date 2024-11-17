@@ -7,6 +7,8 @@ from tqdm import tqdm
 from sahi import AutoDetectionModel
 from sahi.predict import get_sliced_prediction
 
+from gis_processor import GISProcessor
+
 
 CATEGORIES = [
     {
@@ -83,12 +85,6 @@ CATEGORIES = [
     }
 ]
 
-def center_bbox(bbox):
-    x, y, w, h = bbox
-    return {
-        "x": x + w / 2,
-        "y": y + h / 2,
-    }
 
 
 def parse_args():
@@ -99,7 +95,8 @@ def parse_args():
     parser.add_argument("--out-dir", type=str, default="out_dirs")
     parser.add_argument("--score-thr", type=float, default=0.3)
     parser.add_argument("--export-vis", action="store_true", default=False)
-    parser.add_argument("--center-bbox", action="store_true", default=False)
+    parser.add_argument("--center-bbox", action="store_true", default=False, help= "bbox의 중심 좌표를 계산하여 [center] 키로 저장합니다.")
+    parser.add_argument("--gis", action="store_true", default=False, help="위도 및 경도를 계산하여 [gis] 키로 저장합니다.")
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -150,7 +147,10 @@ if __name__ == "__main__":
         }
 
         if args.center_bbox:
-            preds_dict["center"] = [center_bbox(bbox) for bbox in preds_dict["bboxes"]]
+            preds_dict["center"] = [GISProcessor.get_center_bbox(bbox) for bbox in preds_dict["bboxes"]]
+
+        if args.gis:
+            preds_dict["gis"] = GISProcessor.populate_gis_from_dict(preds_dict, img_path.replace(".tif", ".tfw"))
             
         output_path = os.path.join(output_pred_dir, fn.replace(Path(fn).suffix, ".json"))
         with open(output_path, "w") as f:
