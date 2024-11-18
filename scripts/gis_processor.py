@@ -207,8 +207,7 @@ class GISProcessor:
                     polygon_gis.append(longitude)
                 mask_gis.append(polygon_gis)
                 mask_gis.append(mask.get("area", 0))
-            results.append({"mask_gis": mask_gis})
-
+            results.append({"polygon_gis": mask_gis})
         return results
             
 
