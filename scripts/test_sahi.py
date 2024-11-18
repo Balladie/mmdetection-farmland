@@ -150,7 +150,8 @@ if __name__ == "__main__":
             preds_dict["center"] = [GISProcessor.get_center_bbox(bbox) for bbox in preds_dict["bboxes"]]
 
         if args.gis:
-            preds_dict["gis"] = GISProcessor.populate_gis_from_dict(preds_dict, img_path.replace(".tif", ".tfw"))
+            preds_dict["centers_gis"] = GISProcessor.populate_gis_from_dict(preds_dict, img_path.replace(".tif", ".tfw"))
+            preds_dict["masks_gis"] = GISProcessor.populate_gis_from_polygon(preds_dict, img_path.replace(".tif", ".tfw"))
             
         output_path = os.path.join(output_pred_dir, fn.replace(Path(fn).suffix, ".json"))
         with open(output_path, "w") as f:
