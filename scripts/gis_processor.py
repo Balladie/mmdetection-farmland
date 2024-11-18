@@ -3,10 +3,16 @@ import copy
 import json
 import os
 from pathlib import Path
+import pyproj
 from tqdm import tqdm
 
 
 class GISProcessor:
+    # Class variable
+    # True : 중부원점 기준 위성좌표계 정보를 WGS84 기준 경위도로 변경
+    # False: 중부원점 기준 위성좌표계 정보를 그대로 사용
+    gis_wgs84 = True  
+
     def __init__(self, json_dir, input_dir, out_dir="outputs", print_results=False):
         self.json_dir = json_dir
         self.input_dir = input_dir
@@ -19,6 +25,18 @@ class GISProcessor:
     def get_center_bbox(bbox):
         x, y, w, h = bbox
         return {"x": x + w / 2, "y": y + h / 2}
+    
+
+    # 중부원점 기준 위성좌표계 정보를 WGS84 기준 경위도로 변경
+    def convert_tm_wgs(x, y):
+        # Define the source and target coordinate systems
+        source_crs = pyproj.CRS.from_epsg(5186)  # EPSG:5186 (중부원점)
+        target_crs = pyproj.CRS.from_epsg(4326)  # EPSG:4326 (WGS 84 - World Geodetic System) (경위도)
+
+        # Create a transformer to convert from the source to the target CRS
+        transformer = pyproj.Transformer.from_crs(source_crs, target_crs, always_xy=True)
+
+        return transformer.transform(x, y)
 
     @staticmethod
     def get_lat_lon_from_pixel(tfw_path, pixel_x, pixel_y):
@@ -33,6 +51,9 @@ class GISProcessor:
 
         coord_x = upper_left_x + pixel_x * pixel_size_x + pixel_y * rotation_x
         coord_y = upper_left_y + pixel_x * rotation_y + pixel_y * pixel_size_y
+
+        if GISProcessor.gis_wgs84:
+            coord_x, coord_y = GISProcessor.convert_tm_wgs(coord_x, coord_y)
 
         return coord_x, coord_y
 
