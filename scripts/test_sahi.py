@@ -95,12 +95,28 @@ def parse_args():
     parser.add_argument("--out-dir", type=str, default="out_dirs")
     parser.add_argument("--score-thr", type=float, default=0.3)
     parser.add_argument("--export-vis", action="store_true", default=False)
-    parser.add_argument("--center-bbox", action="store_true", default=False, help= "bbox의 중심 좌표를 계산하여 [center] 키로 저장합니다.")
+    parser.add_argument("--center-bbox", action="store_true", default=False, help="bbox의 중심 좌표를 계산하여 [center] 키로 저장합니다.")
     parser.add_argument("--gis", action="store_true", default=False, help="위도 및 경도를 계산하여 [gis] 키로 저장합니다.")
     return parser.parse_args()
 
 if __name__ == "__main__":
     args = parse_args()
+
+    # 입력 디렉토리 이름 기반으로 출력 디렉토리 생성
+    base_input_dir = os.path.basename(os.path.normpath(args.input_dir))
+    output_base_dir = os.path.join(args.out_dir, base_input_dir)
+    output_pred_dir = os.path.join(output_base_dir, "preds")
+    output_vis_dir = os.path.join(output_base_dir, "vis")
+    error_log_path = os.path.join(output_base_dir, "errorlog.txt")
+    
+    # 디렉토리 생성
+    Path(output_pred_dir).mkdir(parents=True, exist_ok=True)
+    Path(output_vis_dir).mkdir(parents=True, exist_ok=True)
+
+    # 에러 로그 초기화
+    with open(error_log_path, "w") as error_log:
+        error_log.write("Error Log\n")
+        error_log.write("==========\n")
 
     model = AutoDetectionModel.from_pretrained(
         model_type="mmdet",
@@ -111,51 +127,56 @@ if __name__ == "__main__":
         device="cuda",
     )
 
-    output_pred_dir = os.path.join(args.out_dir, "preds")
-    output_vis_dir = os.path.join(args.out_dir, "vis")
-    Path(output_pred_dir).mkdir(exist_ok=True)
-    Path(output_vis_dir).mkdir(exist_ok=True)
-
     for fn in tqdm(os.listdir(args.input_dir)):
         if ".tif" not in fn:
             continue
 
         img_path = os.path.join(args.input_dir, fn)
-        result = get_sliced_prediction(
-            img_path,
-            model,
-            slice_height=640,
-            slice_width=640,
-            overlap_height_ratio=0.2,
-            overlap_width_ratio=0.2,
-            postprocess_match_threshold=0.5,
-            perform_standard_pred=False,
-        )
-        preds = [pred.to_coco_prediction() for pred in result.object_prediction_list]
-        preds_dict = {
-            "metadata": {
-                "image_id": Path(fn).stem,
-                "categories": CATEGORIES,
-            },
-            "labels": [pred.category_id for pred in preds],
-            "scores": [pred.score for pred in preds],
-            "bboxes": [pred.bbox for pred in preds],
-            "masks": [{
-                "polygon": pred.segmentation,
-                "area": pred.area,
-            } for pred in preds],
-        }
+        try:
+            # 예측 수행
+            result = get_sliced_prediction(
+                img_path,
+                model,
+                slice_height=640,
+                slice_width=640,
+                overlap_height_ratio=0.2,
+                overlap_width_ratio=0.2,
+                postprocess_match_threshold=0.5,
+                perform_standard_pred=False,
+            )
+            preds = [pred.to_coco_prediction() for pred in result.object_prediction_list]
+            preds_dict = {
+                "metadata": {
+                    "image_id": Path(fn).stem,
+                    "categories": CATEGORIES,
+                },
+                "labels": [pred.category_id for pred in preds],
+                "scores": [pred.score for pred in preds],
+                "bboxes": [pred.bbox for pred in preds],
+                "masks": [{
+                    "polygon": pred.segmentation,
+                    "area": pred.area,
+                } for pred in preds],
+            }
 
-        if args.center_bbox:
-            preds_dict["center"] = [GISProcessor.get_center_bbox(bbox) for bbox in preds_dict["bboxes"]]
+            if args.center_bbox:
+                preds_dict["center"] = [GISProcessor.get_center_bbox(bbox) for bbox in preds_dict["bboxes"]]
 
-        if args.gis:
-            preds_dict["centers_gis"] = GISProcessor.populate_gis_from_dict(preds_dict, img_path.replace(".tif", ".tfw"))
-            preds_dict["masks_gis"] = GISProcessor.populate_gis_from_polygon(preds_dict, img_path.replace(".tif", ".tfw"))
+            if args.gis:
+                preds_dict["centers_gis"] = GISProcessor.populate_gis_from_dict(preds_dict, img_path.replace(".tif", ".tfw"))
+                preds_dict["masks_gis"] = GISProcessor.populate_gis_from_polygon(preds_dict, img_path.replace(".tif", ".tfw"))
             
-        output_path = os.path.join(output_pred_dir, fn.replace(Path(fn).suffix, ".json"))
-        with open(output_path, "w") as f:
-            json.dump(preds_dict, f, indent=4, ensure_ascii=False)
+            # 예측 결과 저장
+            output_path = os.path.join(output_pred_dir, fn.replace(Path(fn).suffix, ".json"))
+            with open(output_path, "w") as f:
+                json.dump(preds_dict, f, indent=4, ensure_ascii=False)
 
-        if args.export_vis:
-            result.export_visuals(export_dir=output_vis_dir, file_name=Path(fn).stem, rect_th=1, hide_conf=True, hide_labels=True)
+            # 시각화 결과 저장 (옵션)
+            if args.export_vis:
+                result.export_visuals(export_dir=output_vis_dir, file_name=Path(fn).stem, rect_th=1, hide_conf=True, hide_labels=True)
+        
+        except Exception as e:
+            # 에러 발생 시 로그에 기록
+            with open(error_log_path, "a") as error_log:
+                error_log.write(f"Error processing file: {img_path}\n")
+                error_log.write(f"Error message: {str(e)}\n\n")
