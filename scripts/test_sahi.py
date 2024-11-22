@@ -164,7 +164,7 @@ if __name__ == "__main__":
 
             if args.gis:
                 preds_dict["centers_gis"] = GISProcessor.populate_gis_from_dict(preds_dict, img_path.replace(".tif", ".tfw"))
-                # preds_dict["masks_gis"] = GISProcessor.populate_gis_from_polygon(preds_dict, img_path.replace(".tif", ".tfw"))
+                # preds_dict["masks_gis"] = GISProcessor.populate_gis_from_polygon(preds_dict, img_path.replace(".tif", ".tfw"))  # polygon
                 preds_dict["bbox_lat_lon"] = [
                     GISProcessor.get_bbox_pos_with_lat_lon(bbox, img_path.replace(".tif", ".tfw")) for bbox in preds_dict["bboxes"]
                 ]
