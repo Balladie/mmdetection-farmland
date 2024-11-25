@@ -23,6 +23,7 @@ class GISProcessor:
 
     @staticmethod
     def get_center_bbox(bbox):
+        print(bbox)
         x, y, w, h = bbox
         return {"x": x + w / 2, "y": y + h / 2}
     
@@ -35,6 +36,48 @@ class GISProcessor:
             "x3": x, "y3": y + h,
             "x4": x + w, "y4": y + h
             }
+    
+    @staticmethod
+    def remove_empty_lists(preds_dict, key):
+        """
+        Remove empty lists from the specified key in the given dictionary.
+
+        Args:
+            preds_dict (dict): A dictionary containing the key to process.
+            key (str): The key whose values should be processed to remove empty lists.
+
+        Returns:
+            dict: The updated dictionary with empty lists removed from the specified key.
+        """
+        if key in preds_dict:  # Check if the key exists
+            if isinstance(preds_dict[key], list):  # Check if the value is a list
+                filtered_values = []
+                for item in preds_dict[key]:
+                    if item:  # Only append non-empty items
+                        filtered_values.append(item)
+                preds_dict[key] = filtered_values
+        return preds_dict
+    
+    @staticmethod
+    def remove_empty_polygons(preds_dict):
+        """
+        Remove masks where the 'polygon' key contains an empty list.
+
+        Args:
+            preds_dict (dict): A dictionary containing the key 'masks'.
+
+        Returns:
+            dict: The updated dictionary with masks having empty polygons removed.
+        """
+        if "masks" in preds_dict:  # Check if 'masks' key exists
+            if isinstance(preds_dict["masks"], list):  # Ensure 'masks' is a list
+                filtered_masks = []
+                for mask in preds_dict["masks"]:
+                    if mask.get("polygon") and isinstance(mask["polygon"], list) and any(mask["polygon"]):
+                        # Include mask only if 'polygon' is not empty
+                        filtered_masks.append(mask)
+                preds_dict["masks"] = filtered_masks
+        return preds_dict
     
 
     # 중부원점 기준 위성좌표계 정보를 WGS84 기준 경위도로 변경
@@ -109,6 +152,15 @@ class GISProcessor:
                 print(f"{tfw_file_path} 파일이 {self.input_dir} 에 없습니다.")
                 continue
 
+            # Filters output
+            with open(json_file_path, 'r') as file:
+                _data = json.load(file)
+            GISProcessor.remove_empty_lists(_data, 'bboxes')
+            GISProcessor.remove_empty_polygons(_data)
+            with open(json_file_path, 'w') as file:
+                json.dump(_data, file, indent=4, ensure_ascii=False)
+
+
             results_center = self.process_json_and_calculate_coordinates(json_file_path, tfw_file_path)
             # results_polygon = self.process_json_and_calculate_polygon(json_file_path, tfw_file_path)
 
@@ -117,7 +169,7 @@ class GISProcessor:
                 # print(f"{fn}: {results_polygon}")
             else:
                 output_file_path = os.path.join(self.output_gis_dir, fn)
-                # self.save_results_with_gis_to_json(results_center, results_polygon, json_file_path, output_file_path)
+                # self.save_results_with_gis_to_json(results_center, results_polygon, json_file_path, output_file_path)                
                 self.save_results_with_gis_to_json(results_center, json_file_path, output_file_path)       
 
     @staticmethod

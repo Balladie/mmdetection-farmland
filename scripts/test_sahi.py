@@ -159,6 +159,9 @@ if __name__ == "__main__":
                 } for pred in preds],
             }
 
+            GISProcessor.remove_empty_lists(preds_dict, 'bboxes')
+            GISProcessor.remove_empty_polygons(preds_dict)
+
             if args.center_bbox:
                 preds_dict["center"] = [GISProcessor.get_center_bbox(bbox) for bbox in preds_dict["bboxes"]]
 
