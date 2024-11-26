@@ -87,6 +87,27 @@ CATEGORIES = [
 
 
 
+def get_all_tif_files(input_dir):
+    """Recursively get all .tif files from input directory and its subdirectories."""
+    tif_files = []
+    for root, _, files in os.walk(input_dir):
+        for file in files:
+            if file.endswith('.tif'):
+                tif_files.append(os.path.join(root, file))
+    return tif_files
+
+def create_output_dirs(input_path, base_out_dir):
+    """Create output directories maintaining input directory structure."""
+    rel_path = os.path.relpath(os.path.dirname(input_path), start=args.input_dir)
+    output_base_dir = os.path.join(base_out_dir, rel_path)
+    output_pred_dir = os.path.join(output_base_dir, "preds")
+    output_vis_dir = os.path.join(output_base_dir, "vis")
+    
+    Path(output_pred_dir).mkdir(parents=True, exist_ok=True)
+    Path(output_vis_dir).mkdir(parents=True, exist_ok=True)
+    
+    return output_pred_dir, output_vis_dir
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True)
@@ -102,22 +123,18 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    # 입력 디렉토리 이름 기반으로 출력 디렉토리 생성
+    # 기본 출력 디렉토리 생성
     base_input_dir = os.path.basename(os.path.normpath(args.input_dir))
-    output_base_dir = os.path.join(args.out_dir, base_input_dir)
-    output_pred_dir = os.path.join(output_base_dir, "preds")
-    output_vis_dir = os.path.join(output_base_dir, "vis")
-    error_log_path = os.path.join(output_base_dir, "errorlog.txt")
+    base_output_dir = os.path.join(args.out_dir, base_input_dir)
+    error_log_path = os.path.join(base_output_dir, "errorlog.txt")
     
-    # 디렉토리 생성
-    Path(output_pred_dir).mkdir(parents=True, exist_ok=True)
-    Path(output_vis_dir).mkdir(parents=True, exist_ok=True)
-
-    # 에러 로그 초기화
+    # 에러 로그 파일 생성
+    Path(base_output_dir).mkdir(parents=True, exist_ok=True)
     with open(error_log_path, "w") as error_log:
         error_log.write("Error Log\n")
         error_log.write("==========\n")
 
+    # 모델 로드
     model = AutoDetectionModel.from_pretrained(
         model_type="mmdet",
         model_path=args.ckpt,
@@ -127,12 +144,14 @@ if __name__ == "__main__":
         device="cuda",
     )
 
-    for fn in tqdm(os.listdir(args.input_dir)):
-        if ".tif" not in fn:
-            continue
+    # 모든 .tif 파일 경로 수집
+    tif_files = get_all_tif_files(args.input_dir)
 
-        img_path = os.path.join(args.input_dir, fn)
+    for img_path in tqdm(tif_files):
         try:
+            # 출력 디렉토리 생성
+            output_pred_dir, output_vis_dir = create_output_dirs(img_path, args.out_dir)
+            
             # 예측 수행
             result = get_sliced_prediction(
                 img_path,
@@ -145,6 +164,7 @@ if __name__ == "__main__":
                 perform_standard_pred=False,
             )
             preds = [pred.to_coco_prediction() for pred in result.object_prediction_list]
+            fn = os.path.basename(img_path)
             preds_dict = {
                 "metadata": {
                     "image_id": Path(fn).stem,
@@ -167,7 +187,6 @@ if __name__ == "__main__":
 
             if args.gis:
                 preds_dict["centers_gis"] = GISProcessor.populate_gis_from_dict(preds_dict, img_path.replace(".tif", ".tfw"))
-                # preds_dict["masks_gis"] = GISProcessor.populate_gis_from_polygon(preds_dict, img_path.replace(".tif", ".tfw"))
                 preds_dict["bbox_lat_lon"] = [
                     GISProcessor.get_bbox_pos_with_lat_lon(bbox, img_path.replace(".tif", ".tfw")) for bbox in preds_dict["bboxes"]
                 ]

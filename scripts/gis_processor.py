@@ -118,6 +118,7 @@ class GISProcessor:
         results = GISProcessor.populate_gis_from_dict(data, tfw_path)
         return results
     
+    # polygon
     # def process_json_and_calculate_polygon(self, json_path, tfw_path):
     #     with open(json_path, 'r') as json_file:
     #         data = json.load(json_file)
@@ -126,6 +127,7 @@ class GISProcessor:
     #     return results
 
     # def save_results_with_gis_to_json(self, results_center, results_polygon, json_file_path, output_file_path):
+    ######################
     def save_results_with_gis_to_json(self, results_center, json_file_path, output_file_path):
         with open(json_file_path, 'r') as file:
             _data = json.load(file)
@@ -133,7 +135,7 @@ class GISProcessor:
         data = copy.deepcopy(_data)
 
         data['center_gis'] = results_center
-        # data['masks_gis'] = results_polygon
+        # data['masks_gis'] = results_polygon # polygon
 
         with open(output_file_path, 'w') as file:
             json.dump(data, file, indent=4, ensure_ascii=False)
@@ -162,14 +164,14 @@ class GISProcessor:
 
 
             results_center = self.process_json_and_calculate_coordinates(json_file_path, tfw_file_path)
-            # results_polygon = self.process_json_and_calculate_polygon(json_file_path, tfw_file_path)
+            # results_polygon = self.process_json_and_calculate_polygon(json_file_path, tfw_file_path) # polygon
 
             if self.print_results:
                 print(f"{fn}: {results_center}")
-                # print(f"{fn}: {results_polygon}")
+                print(f"{fn}: {results_polygon}")  # polygon
             else:
                 output_file_path = os.path.join(self.output_gis_dir, fn)
-                # self.save_results_with_gis_to_json(results_center, results_polygon, json_file_path, output_file_path)                
+                # self.save_results_with_gis_to_json(results_center, results_polygon, json_file_path, output_file_path)                 # polygon
                 self.save_results_with_gis_to_json(results_center, json_file_path, output_file_path)       
 
     @staticmethod
@@ -201,8 +203,11 @@ class GISProcessor:
         """
         centers = preds_dict.get("center", [])
         if not centers:
-            centers = [GISProcessor.get_center_bbox(bbox) for bbox in preds_dict["bboxes"]]
-
+            #centers = [GISProcessor.get_center_bbox(bbox) for bbox in preds_dict['bboxes']]
+            for bbox in preds_dict['bboxes']:
+                if len(bbox) != 4:
+                    continue
+                centers.append(GISProcessor.get_center_bbox(bbox))
         results = []
         for center in centers:
             pixel_x = center["x"]
@@ -226,6 +231,10 @@ class GISProcessor:
         """
         bbox의 네 꼭짓점에 대해 경위도 정보를 pos1, pos2, pos3, pos4로 반환
         """
+        # bbox가 비어있으면 Null을 리턴
+        if len(bbox) == 0:
+            return []
+
         # bbox의 꼭짓점 좌표 계산
         pos = GISProcessor.get_bbox_pos(bbox)
 
@@ -265,6 +274,7 @@ class GISProcessor:
 
         return lat_lon_pos
 
+    # polygon
     # @staticmethod
     # def populate_gis_from_polygon(preds_dict, tfw_path):
     #     """

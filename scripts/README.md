@@ -43,8 +43,60 @@ python scripts/test_sahi.py --config configs/mask2former/mask2former_swin-t-p4-w
 
 config에 지정된 test set의 크롭된 단일 이미지들에 대해 COCO eval 평가를 진행합니다.
 
+다음과 같이 데이터셋을 준비합니다.
+
+```
+IMG_DIR
+├── annotations
+    ├── instances_train.json
+    ├── instances_val.json
+├── KG-KR-301
+├── krcc
+...
+```
+
+다음으로 위 경로를 config에 반영해줍니다. 
+
+사용하려는 `mask2former_swin-t-p4-w7-224_8xb2-lsj-50e_farmland.py` 는 `mask2former_r50_8xb2-lsj-50e_farmland.py`에 데이터 경로가 지정되어 있으므로, `mask2former_r50_8xb2-lsj-50e_farmland.py` 내 `data_root` 변수를 다음과 같이 경로에 맞게 수정해줍니다. 
+
+```python
+...
+dataset_type = 'FarmlandDataset'
+data_root = 'IMG_DIR'   # 여기를 경로에 맞게 수정
+
+train_dataloader = dict(
+    batch_size=8,
+    dataset=dict(
+        type=dataset_type,
+        ann_file='annotations/instances_train.json',
+...
+```
+
+이후 다음과 같이 추론 및 평가를 진행합니다. 
+
 ```bash
 bash tools/dist_test.sh configs/mask2former/mask2former_swin-t-p4-w7-224_8xb2-lsj-50e_farmland.py [CKPT_PATH] [NUM_GPU]
+```
+
+결과는 다음과 같이 출력됩니다. 
+
+IoU=0.05:0.05, area=all, maxDets=100 에 대한 AP와 AR을 조화평균하면 F1 score를 얻습니다. 
+
+아래 예시에 따르면 F1은 `2 x 0.737 x 0.920 / (0.737 + 0.920) = 0.8184` 입니다.
+
+```
+ Average Precision  (AP) @[ IoU=0.05:0.05 | area=   all | maxDets=100 ] = 0.737
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=1000 ] = -1.000
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=1000 ] = -1.000
+ Average Precision  (AP) @[ IoU=0.05:0.05 | area= small | maxDets=1000 ] = 0.572
+ Average Precision  (AP) @[ IoU=0.05:0.05 | area=medium | maxDets=1000 ] = 0.714
+ Average Precision  (AP) @[ IoU=0.05:0.05 | area= large | maxDets=1000 ] = 0.694
+ Average Recall     (AR) @[ IoU=0.05:0.05 | area=   all | maxDets=100 ] = 0.920
+ Average Recall     (AR) @[ IoU=0.05:0.05 | area=   all | maxDets=300 ] = 0.920
+ Average Recall     (AR) @[ IoU=0.05:0.05 | area=   all | maxDets=1000 ] = 0.920
+ Average Recall     (AR) @[ IoU=0.05:0.05 | area= small | maxDets=1000 ] = 0.855
+ Average Recall     (AR) @[ IoU=0.05:0.05 | area=medium | maxDets=1000 ] = 0.927
+ Average Recall     (AR) @[ IoU=0.05:0.05 | area= large | maxDets=1000 ] = 0.897
 ```
 
 ### 항공 이미지
