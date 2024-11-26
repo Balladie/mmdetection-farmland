@@ -23,11 +23,15 @@ class GISProcessor:
 
     @staticmethod
     def get_center_bbox(bbox):
+        if len(bbox) != 4:
+            return []
         x, y, w, h = bbox
         return {"x": x + w / 2, "y": y + h / 2}
     
     @staticmethod
     def get_bbox_pos(bbox):
+        if len(bbox) != 4:
+            return []
         x, y, w, h = bbox
         return {
             "x1": x, "y1": y,
@@ -85,6 +89,17 @@ class GISProcessor:
 
     # def save_results_with_gis_to_json(self, results_center, results_polygon, json_file_path, output_file_path):
     ######################
+
+    def process_json_and_calculate_bbox_lat_lon(self, json_path, tfw_path):
+        with open(json_path, 'r') as json_file:
+            data = json.load(json_file)
+
+        results = []
+        for bbox in data['bboxes']:
+            results.append(GISProcessor.get_bbox_pos_with_lat_lon(bbox, tfw_path))
+        return results
+    
+
     def save_results_with_gis_to_json(self, results_center, json_file_path, output_file_path):
         with open(json_file_path, 'r') as file:
             _data = json.load(file)
@@ -111,16 +126,32 @@ class GISProcessor:
                 print(f"{tfw_file_path} 파일이 {self.input_dir} 에 없습니다.")
                 continue
 
+            with open(json_file_path, 'r') as json_file:
+                data = json.load(json_file)
+
             results_center = self.process_json_and_calculate_coordinates(json_file_path, tfw_file_path)
             # results_polygon = self.process_json_and_calculate_polygon(json_file_path, tfw_file_path) # polygon
+            data['center_gis'] = results_center
+            results_bbox_lat_lon = self.process_json_and_calculate_bbox_lat_lon(json_file_path, tfw_file_path)
+            data['bbox_lat_lon'] = results_bbox_lat_lon
 
             if self.print_results:
                 print(f"{fn}: {results_center}")
-                print(f"{fn}: {results_polygon}")  # polygon
+                #print(f"{fn}: {results_polygon}")  # polygon
+                print(f"{fn}: {results_bbox_lat_lon}")
             else:
                 output_file_path = os.path.join(self.output_gis_dir, fn)
+
+                _data = copy.deepcopy(data)
+                with open(output_file_path, 'w') as file:
+                    json.dump(_data, file, indent=4, ensure_ascii=False)
+
+                print(f"JSON 파일을 저장하였습니다: {output_file_path}")
+
                 # self.save_results_with_gis_to_json(results_center, results_polygon, json_file_path, output_file_path) # polygon
-                self.save_results_with_gis_to_json(results_center, json_file_path, output_file_path)       
+                # self.save_results_with_gis_to_json(results_center, json_file_path, output_file_path)       
+                
+
 
     @staticmethod
     def populate_gis_from_dict(preds_dict, tfw_path):
@@ -153,11 +184,12 @@ class GISProcessor:
         if not centers:
             #centers = [GISProcessor.get_center_bbox(bbox) for bbox in preds_dict['bboxes']]
             for bbox in preds_dict['bboxes']:
-                if len(bbox) != 4:
-                    continue
                 centers.append(GISProcessor.get_center_bbox(bbox))
         results = []
         for center in centers:
+            if not center:
+                results.append({})
+                continue
             pixel_x = center["x"]
             pixel_y = center["y"]
             latitude, longitude = GISProcessor.get_lat_lon_from_pixel(tfw_path, pixel_x, pixel_y)
@@ -181,7 +213,7 @@ class GISProcessor:
         """
         # bbox가 비어있으면 Null을 리턴
         if len(bbox) == 0:
-            return []
+            return {}
 
         # bbox의 꼭짓점 좌표 계산
         pos = GISProcessor.get_bbox_pos(bbox)
