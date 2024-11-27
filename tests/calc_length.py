@@ -3,8 +3,9 @@ import json
 
 def count_values_in_key(json_data, key):
     count = 0
-    for item in json_data.get(key, []):
+    for index, item in enumerate(json_data.get(key, [])):
         if len(item) == 0:
+            print(f"Empty value at index {index + 1}")
             count += 1
     return count
 
@@ -26,7 +27,7 @@ def main():
     json_data = read_json_file(args.file)
 
     key_to_count = "bboxes"
-    value_count = len_values_in_key(json_data, key_to_count)
+    value_count = count_values_in_key(json_data, key_to_count)
     print(f"The key '{key_to_count}' appears {value_count} times.")
     key_to_count = "centers_gis"
     value_count = len_values_in_key(json_data, key_to_count)
