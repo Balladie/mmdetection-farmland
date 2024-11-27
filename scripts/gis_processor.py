@@ -302,8 +302,8 @@ class GISProcessor:
             mask_gis = {}
             polygons = mask.get("polygon", [])
             if len(polygons) == 0:
-                mask_gis.append({"polygon": []})
-                mask_gis.append({"area":0})
+                mask_gis["polygon"] = []
+                mask_gis["area"] = 0
                 print("Error: Polygon is empty:", mask)
                 continue
             for polygon in polygons:
