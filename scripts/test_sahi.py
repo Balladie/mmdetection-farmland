@@ -118,6 +118,7 @@ def parse_args():
     parser.add_argument("--export-vis", action="store_true", default=False)
     parser.add_argument("--center-bbox", action="store_true", default=False, help="bbox의 중심 좌표를 계산하여 [center] 키로 저장합니다.")
     parser.add_argument("--gis", action="store_true", default=False, help="위도 및 경도를 계산하여 [gis] 키로 저장합니다.")
+    parser.add_argument("--polygon", action="store_true", default=False, help="polygon을 계산하여 [polygon] 키로 저장합니다.")
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -187,6 +188,13 @@ if __name__ == "__main__":
                 preds_dict["bbox_lat_lon"] = [
                     GISProcessor.get_bbox_pos_with_lat_lon(bbox, img_path.replace(".tif", ".tfw")) for bbox in preds_dict["bboxes"]
                 ]
+
+            if args.polygon:
+                try:
+                    preds_dict["masks_gis"] = GISProcessor.populate_gis_from_polygon(preds_dict, img_path.replace(".tif", ".tfw"))
+                except Exception as e:
+                    print(f"Error occurred while calculating polygon: {str(e)}")
+                    preds_dict["masks_gis"] = None
             
             # 예측 결과 저장
             output_path = os.path.join(output_pred_dir, fn.replace(Path(fn).suffix, ".json"))

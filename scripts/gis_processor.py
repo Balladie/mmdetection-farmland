@@ -295,11 +295,16 @@ class GISProcessor:
 
         results = []
         for mask in preds_dict.get("masks", []):
-            mask_gis = []
+            # Ensure 'mask' is a dictionary
+            if not isinstance(mask, dict):
+                print("Error: Mask is not a dictionary:", mask)
+                continue
+            mask_gis = {}
             polygons = mask.get("polygon", [])
             if len(polygons) == 0:
                 mask_gis.append({"polygon": []})
                 mask_gis.append({"area":0})
+                print("Error: Polygon is empty:", mask)
                 continue
             for polygon in polygons:
                 polygon_gis = []
@@ -308,9 +313,9 @@ class GISProcessor:
                     latitude, longitude = GISProcessor.get_lat_lon_from_pixel_param(x, y, pixel_size_x, rotation_x, rotation_y, pixel_size_y, upper_left_x, upper_left_y)
                     polygon_gis.append(latitude)
                     polygon_gis.append(longitude)
-                mask_gis.append({"polygon": polygon_gis})
-                mask_gis.append({"area":mask.get("area", 0)})
-            results.append({"masks_gis":mask_gis})
+                mask_gis["polygon"] = polygon_gis
+                mask_gis["area"] = mask.get("area", 0) if isinstance(mask.get("area"), (int, float)) else 0
+            results.append(mask_gis)
 
         return results
             
