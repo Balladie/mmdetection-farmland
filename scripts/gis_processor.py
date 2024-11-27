@@ -13,21 +13,25 @@ class GISProcessor:
     # False: 중부원점 기준 위성좌표계 정보를 그대로 사용
     gis_wgs84 = True
 
-    def __init__(self, json_dir, input_dir, out_dir="outputs", print_results=False):
+    def __init__(self, json_dir, input_dir, out_dir="outputs", print_results=False, polygon=False):
         self.json_dir = json_dir
         self.input_dir = input_dir
         self.out_dir = out_dir
         self.print_results = print_results
-        self.output_gis_dir = os.path.join(self.out_dir, "gis")
-        Path(self.output_gis_dir).mkdir(exist_ok=True)
+        self.polygon = polygon
+        Path(self.out_dir).mkdir(exist_ok=True)
 
     @staticmethod
     def get_center_bbox(bbox):
+        if len(bbox) != 4:
+            return []
         x, y, w, h = bbox
         return {"x": x + w / 2, "y": y + h / 2}
     
     @staticmethod
     def get_bbox_pos(bbox):
+        if len(bbox) != 4:
+            return []
         x, y, w, h = bbox
         return {
             "x1": x, "y1": y,
@@ -75,23 +79,31 @@ class GISProcessor:
         results = GISProcessor.populate_gis_from_dict(data, tfw_path)
         return results
     
-    # polygon
-    # def process_json_and_calculate_polygon(self, json_path, tfw_path):
-    #     with open(json_path, 'r') as json_file:
-    #         data = json.load(json_file)
+    
+    def process_json_and_calculate_polygon(self, json_path, tfw_path):
+        with open(json_path, 'r') as json_file:
+            data = json.load(json_file)
 
-    #     results = GISProcessor.populate_gis_from_polygon(data, tfw_path)
-    #     return results
+        results = GISProcessor.populate_gis_from_polygon(data, tfw_path)
+        return results
 
-    # def save_results_with_gis_to_json(self, results_center, results_polygon, json_file_path, output_file_path):
-    ######################
+    def process_json_and_calculate_bbox_lat_lon(self, json_path, tfw_path):
+        with open(json_path, 'r') as json_file:
+            data = json.load(json_file)
+
+        results = []
+        for bbox in data['bboxes']:
+            results.append(GISProcessor.get_bbox_pos_with_lat_lon(bbox, tfw_path))
+        return results
+    
+
     def save_results_with_gis_to_json(self, results_center, json_file_path, output_file_path):
         with open(json_file_path, 'r') as file:
             _data = json.load(file)
 
         data = copy.deepcopy(_data)
 
-        data['center_gis'] = results_center
+        data['centers_gis'] = results_center
         # data['masks_gis'] = results_polygon # polygon
 
         with open(output_file_path, 'w') as file:
@@ -111,16 +123,36 @@ class GISProcessor:
                 print(f"{tfw_file_path} 파일이 {self.input_dir} 에 없습니다.")
                 continue
 
-            results_center = self.process_json_and_calculate_coordinates(json_file_path, tfw_file_path)
-            # results_polygon = self.process_json_and_calculate_polygon(json_file_path, tfw_file_path) # polygon
+            with open(json_file_path, 'r') as json_file:
+                data = json.load(json_file)
+
+            if(self.polygon):
+                results_polygon = self.process_json_and_calculate_polygon(json_file_path, tfw_file_path)
+                data['masks_gis'] = results_polygon
+            else:
+                results_center = self.process_json_and_calculate_coordinates(json_file_path, tfw_file_path)
+                data['centers_gis'] = results_center
+                results_bbox_lat_lon = self.process_json_and_calculate_bbox_lat_lon(json_file_path, tfw_file_path)
+                data['bbox_lat_lon'] = results_bbox_lat_lon
+
 
             if self.print_results:
                 print(f"{fn}: {results_center}")
                 print(f"{fn}: {results_polygon}")  # polygon
+                print(f"{fn}: {results_bbox_lat_lon}")
             else:
-                output_file_path = os.path.join(self.output_gis_dir, fn)
-                # self.save_results_with_gis_to_json(results_center, results_polygon, json_file_path, output_file_path) # polygon
-                self.save_results_with_gis_to_json(results_center, json_file_path, output_file_path)       
+                if not self.out_dir:
+                    output_gis_dir = os.path.join(self.out_dir, "gis")
+                    Path(output_gis_dir).mkdir(exist_ok=True)
+                    output_file_path = os.path.join(output_gis_dir, fn)
+                else:
+                    output_file_path = os.path.join(self.out_dir, fn)
+
+                _data = copy.deepcopy(data)
+                with open(output_file_path, 'w') as file:
+                    json.dump(_data, file, indent=4, ensure_ascii=False)
+
+                print(f"JSON 파일을 저장하였습니다: {output_file_path}")
 
     @staticmethod
     def populate_gis_from_dict(preds_dict, tfw_path):
@@ -153,11 +185,12 @@ class GISProcessor:
         if not centers:
             #centers = [GISProcessor.get_center_bbox(bbox) for bbox in preds_dict['bboxes']]
             for bbox in preds_dict['bboxes']:
-                if len(bbox) != 4:
-                    continue
                 centers.append(GISProcessor.get_center_bbox(bbox))
         results = []
         for center in centers:
+            if not center:
+                results.append({})
+                continue
             pixel_x = center["x"]
             pixel_y = center["y"]
             latitude, longitude = GISProcessor.get_lat_lon_from_pixel(tfw_path, pixel_x, pixel_y)
@@ -181,7 +214,7 @@ class GISProcessor:
         """
         # bbox가 비어있으면 Null을 리턴
         if len(bbox) == 0:
-            return []
+            return {}
 
         # bbox의 꼭짓점 좌표 계산
         pos = GISProcessor.get_bbox_pos(bbox)
@@ -222,60 +255,70 @@ class GISProcessor:
 
         return lat_lon_pos
 
-    # polygon
-    # @staticmethod
-    # def populate_gis_from_polygon(preds_dict, tfw_path):
-    #     """
-    #     preds_dict: {
-    #         "metadata": {
-    #             "image_id": Path(fn).stem,
-    #             "categories": CATEGORIES,
-    #         },
-    #         "labels": [pred.category_id for pred in preds],
-    #         "scores": [pred.score for pred in preds],
-    #         "bboxes": [pred.bbox for pred in preds],
-    #         "masks": [{
-    #             "polygon": pred.segmentation,
-    #             "area": pred.area,
-    #         } for pred in preds],
-    #     }
+    
+    @staticmethod
+    def populate_gis_from_polygon(preds_dict, tfw_path):
+        """
+        preds_dict: {
+            "metadata": {
+                "image_id": Path(fn).stem,
+                "categories": CATEGORIES,
+            },
+            "labels": [pred.category_id for pred in preds],
+            "scores": [pred.score for pred in preds],
+            "bboxes": [pred.bbox for pred in preds],
+            "masks": [{
+                "polygon": pred.segmentation,
+                "area": pred.area,
+            } for pred in preds],
+        }
 
-    #     tfw_path: str
+        tfw_path: str
 
-    #     sample output:
-    #     [
-    #         {"mask_gis": [[37.123456, 127.123456, 37.123456, 127.123456, ...], 123456]},
-    #         {"mask_gis": [[37.123456, 127.123456, 37.123456, 127.123456, ...], 123456]},
-    #         ...
-    #     ]
+        sample output:
+        [
+            {"mask_gis": [[37.123456, 127.123456, 37.123456, 127.123456, ...], 123456]},
+            {"mask_gis": [[37.123456, 127.123456, 37.123456, 127.123456, ...], 123456]},
+            ...
+        ]
 
-    #     """
+        """
 
-    #     with open(tfw_path, 'r') as tfw_file:
-    #         lines = tfw_file.readlines()
-    #         pixel_size_x = float(lines[0])
-    #         rotation_x = float(lines[1])
-    #         rotation_y = float(lines[2])
-    #         pixel_size_y = float(lines[3])
-    #         upper_left_x = float(lines[4])
-    #         upper_left_y = float(lines[5])
+        with open(tfw_path, 'r') as tfw_file:
+            lines = tfw_file.readlines()
+            pixel_size_x = float(lines[0])
+            rotation_x = float(lines[1])
+            rotation_y = float(lines[2])
+            pixel_size_y = float(lines[3])
+            upper_left_x = float(lines[4])
+            upper_left_y = float(lines[5])
 
-    #     results = []
-    #     for mask in preds_dict.get("masks", []):
-    #         mask_gis = []
-    #         polygons = mask.get("polygon", [])
-    #         for polygon in polygons:
-    #             polygon_gis = []
-    #             for i in range(0, len(polygon), 2):
-    #                 x, y = polygon[i], polygon[i + 1]
-    #                 latitude, longitude = GISProcessor.get_lat_lon_from_pixel_param(x, y, pixel_size_x, rotation_x, rotation_y, pixel_size_y, upper_left_x, upper_left_y)
-    #                 polygon_gis.append(latitude)
-    #                 polygon_gis.append(longitude)
-    #             mask_gis.append(polygon_gis)
-    #             mask_gis.append(mask.get("area", 0))
-    #         results.append({"mask_gis": mask_gis})
+        results = []
+        for mask in preds_dict.get("masks", []):
+            # Ensure 'mask' is a dictionary
+            if not isinstance(mask, dict):
+                print("Error: Mask is not a dictionary:", mask)
+                continue
+            mask_gis = {}
+            polygons = mask.get("polygon", [])
+            if len(polygons) == 0:
+                mask_gis["polygon"] = []
+                mask_gis["area"] = 0
+                results.append(mask_gis)
+                # print("Error: Polygon is empty:", mask)
+                continue
+            for polygon in polygons:
+                polygon_gis = []
+                for i in range(0, len(polygon), 2):
+                    x, y = polygon[i], polygon[i + 1]
+                    latitude, longitude = GISProcessor.get_lat_lon_from_pixel_param(x, y, pixel_size_x, rotation_x, rotation_y, pixel_size_y, upper_left_x, upper_left_y)
+                    polygon_gis.append(latitude)
+                    polygon_gis.append(longitude)
+                mask_gis["polygon"] = polygon_gis
+                mask_gis["area"] = mask.get("area", 0) if isinstance(mask.get("area"), (int, float)) else 0
+            results.append(mask_gis)
 
-    #     return results
+        return results
             
 
 
@@ -285,10 +328,11 @@ def parse_args():
     parser.add_argument("--input-dir", type=str, required=True, help="TFW 파일이 있어야 합니다.")
     parser.add_argument("--out-dir", type=str, default="outputs", help="위도 및 경도를 저장할 디렉토리입니다.")
     parser.add_argument("--print", action="store_true", default=False, help="위도 및 경도를 출력합니다.")
+    parser.add_argument("--polygon", action="store_true", default=False, help="polygon 정보를 출력합니다.")
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    processor = GISProcessor(args.json_dir, args.input_dir, args.out_dir, args.print)
+    processor = GISProcessor(args.json_dir, args.input_dir, args.out_dir, args.print, args.polygon)
     processor.populate_gis()
