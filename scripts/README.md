@@ -128,3 +128,12 @@ sahi predict --slice_width 640 --slice_height 640 --overlap_height_ratio 0.2 --o
 ```bash
 sahi coco evaluate --dataset_json_path [TIF_DIR]/coco_segmentation.json --result_json_path [RESULT_PATH] --iou_thrs 0.01 --type mask --max_detections 500 --areas "[0 0 100000000000]" --classwise
 ```
+
+## 결과확인
+
+input path에 있는 모든 sub directory 별 파일 갯수를 확인하여 ouput path에 생성된 json의 갯수와 비교함.
+대량의 파일을 처리하는 과정에서 오류 발생유무 확인인
+
+```
+python scripts/resultchk.py --input-dir [input 파일 경로] --output-dir [output 파일 경로]
+```
