@@ -6,6 +6,12 @@ from pathlib import Path
 import pyproj
 from tqdm import tqdm
 
+# 중부원점 기준 위성좌표계 정보를 WGS84 기준 경위도로 변경하기 위한 transformer 구성
+# Define the source and target coordinate systems
+source_crs = pyproj.CRS.from_epsg(5186)  # EPSG:5186 (중부원점)
+target_crs = pyproj.CRS.from_epsg(4326)  # EPSG:4326 (WGS 84 - World Geodetic System) (경위도)
+# Create a transformer to convert from the source to the target CRS
+transformer = pyproj.Transformer.from_crs(source_crs, target_crs, always_xy=True)
 
 class GISProcessor:
     # Class variable
@@ -43,12 +49,13 @@ class GISProcessor:
 
     # 중부원점 기준 위성좌표계 정보를 WGS84 기준 경위도로 변경
     def convert_tm_wgs(x, y):
-        # Define the source and target coordinate systems
-        source_crs = pyproj.CRS.from_epsg(5186)  # EPSG:5186 (중부원점)
-        target_crs = pyproj.CRS.from_epsg(4326)  # EPSG:4326 (WGS 84 - World Geodetic System) (경위도)
+        # # Define the source and target coordinate systems
+        # source_crs = pyproj.CRS.from_epsg(5186)  # EPSG:5186 (중부원점)
+        # target_crs = pyproj.CRS.from_epsg(4326)  # EPSG:4326 (WGS 84 - World Geodetic System) (경위도)
 
-        # Create a transformer to convert from the source to the target CRS
-        transformer = pyproj.Transformer.from_crs(source_crs, target_crs, always_xy=True)
+        # # Create a transformer to convert from the source to the target CRS
+        # transformer = pyproj.Transformer.from_crs(source_crs, target_crs, always_xy=True)
+
         # transform retruns longitude, latitude order
         lon, lat = transformer.transform(x, y) 
         return lat, lon
