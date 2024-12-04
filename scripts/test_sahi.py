@@ -3,6 +3,8 @@ import json
 import os
 from pathlib import Path
 from tqdm import tqdm
+import time
+from datetime import timedelta
 
 from sahi import AutoDetectionModel
 from sahi.predict import get_sliced_prediction
@@ -122,6 +124,9 @@ def parse_args():
     return parser.parse_args()
 
 if __name__ == "__main__":
+    # 시작 시간 기록
+    start_time = time.time()
+    
     args = parse_args()
 
     # 기본 출력 디렉토리 생성
@@ -136,6 +141,7 @@ if __name__ == "__main__":
         error_log.write("==========\n")
 
     # 모델 로드
+    print("모델 로딩 중...")
     model = AutoDetectionModel.from_pretrained(
         model_type="mmdet",
         model_path=args.ckpt,
@@ -146,7 +152,13 @@ if __name__ == "__main__":
     )
 
     # 모든 .tif 파일 경로 수집
+    print("파일 목록 수집 중...")
     tif_files = get_all_tif_files(args.input_dir)
+    total_files = len(tif_files)
+    print(f"총 {total_files}개의 파일을 처리합니다.")
+
+    processed_files = 0
+    error_files = 0
 
     for img_path in tqdm(tif_files):
         try:
@@ -211,10 +223,28 @@ if __name__ == "__main__":
 
             # 시각화 결과 저장 (옵션)
             if args.export_vis:
-                result.export_visuals(export_dir=output_vis_dir, file_name=Path(fn).stem, rect_th=1, hide_conf=True, hide_labels=True)
-        
+                result.export_visuals(export_dir=output_vis_dir, file_name=Path(fn).stem, rect_th=1, hide_conf=False, hide_labels=False)
+            
+            processed_files += 1
+            
         except Exception as e:
+            error_files += 1
             # 에러 발생 시 로그에 기록
             with open(error_log_path, "a") as error_log:
                 error_log.write(f"Error processing file: {img_path}\n")
                 error_log.write(f"Error message: {str(e)}\n\n")
+
+    # 종료 시간 기록 및 총 수행시간 계산
+    end_time = time.time()
+    total_time = end_time - start_time
+    
+    # 결과 출력
+    print("\n" + "="*50)
+    print("처리 완료 요약")
+    print("="*50)
+    print(f"총 파일 수: {total_files}")
+    print(f"성공적으로 처리된 파일: {processed_files}")
+    print(f"에러 발생 파일: {error_files}")
+    print(f"총 소요 시간: {str(timedelta(seconds=int(total_time)))}")
+    print(f"파일당 평균 처리 시간: {total_time/total_files:.2f}초")
+    print("="*50)
