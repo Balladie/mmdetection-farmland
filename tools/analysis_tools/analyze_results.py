@@ -19,6 +19,9 @@ from mmdet.structures import DetDataSample
 from mmdet.utils import replace_cfg_vals, update_data_root
 from mmdet.visualization import DetLocalVisualizer
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+import mmengine
 
 def bbox_map_eval(det_result, annotation, nproc=4):
     """Evaluate mAP of single image det result.
@@ -402,6 +405,21 @@ def main():
     result_visualizer.evaluate_and_show(
         dataset, outputs, topk=args.topk, show_dir=args.show_dir)
 
+def analyze_evaluation_results(result_file):
+    """평가 결과를 시각화하고 분석하는 함수"""
+    results = mmengine.load(result_file)
+    
+    # 클래스별 AP 시각화
+    class_names = results['class_names']
+    ap_scores = results['class_ap']
+    
+    plt.figure(figsize=(12, 6))
+    sns.barplot(x=class_names, y=ap_scores)
+    plt.xticks(rotation=45)
+    plt.title('Class-wise Average Precision')
+    plt.tight_layout()
+    plt.savefig('class_wise_ap.png')
 
 if __name__ == '__main__':
     main()
+    analyze_evaluation_results(args.result_file)
