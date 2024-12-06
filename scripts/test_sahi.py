@@ -1,6 +1,8 @@
 import argparse
 import json
 import os
+import torch
+
 from pathlib import Path
 from tqdm import tqdm
 import time
@@ -88,7 +90,6 @@ CATEGORIES = [
 ]
 
 
-
 def get_all_tif_files(input_dir):
     """Recursively get all .tif files from input directory and its subdirectories."""
     tif_files = []
@@ -98,9 +99,9 @@ def get_all_tif_files(input_dir):
                 tif_files.append(os.path.join(root, file))
     return tif_files
 
-def create_output_dirs(input_path, base_out_dir):
+def create_output_dirs(input_path, base_out_dir, input_dir):
     """Create output directories maintaining input directory structure."""
-    rel_path = os.path.relpath(os.path.dirname(input_path), start=args.input_dir)
+    rel_path = os.path.relpath(os.path.dirname(input_path), start=input_dir)
     output_base_dir = os.path.join(base_out_dir, rel_path)
     output_pred_dir = os.path.join(output_base_dir, "preds")
     output_vis_dir = os.path.join(output_base_dir, "vis")
@@ -110,38 +111,12 @@ def create_output_dirs(input_path, base_out_dir):
     
     return output_pred_dir, output_vis_dir
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, required=True)
-    parser.add_argument("--ckpt", type=str, required=True)
-    parser.add_argument("--input-dir", type=str, required=True)
-    parser.add_argument("--out-dir", type=str, default="out_dirs")
-    parser.add_argument("--score-thr", type=float, default=0.3)
-    parser.add_argument("--export-vis", action="store_true", default=False)
-    parser.add_argument("--center-bbox", action="store_true", default=False, help="bbox의 중심 좌표를 계산하여 [center] 키로 저장합니다.")
-    parser.add_argument("--gis", action="store_true", default=False, help="위도 및 경도를 계산하여 [gis] 키로 저장합니다.")
-    parser.add_argument("--polygon", action="store_true", default=False, help="polygon을 계산하여 [polygon] 키로 저장합니다.")
-    return parser.parse_args()
-
-if __name__ == "__main__":
-    # 시작 시간 기록
-    start_time = time.time()
+def process_batch(gpu_id: int, file_batch: List[str], args: Dict, error_log_path: str):
+    """Process a batch of files on a specific GPU."""
+    # Set the device for this process
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     
-    args = parse_args()
-
-    # 기본 출력 디렉토리 생성
-    base_input_dir = os.path.basename(os.path.normpath(args.input_dir))
-    base_output_dir = os.path.join(args.out_dir, base_input_dir)
-    error_log_path = os.path.join(base_output_dir, "errorlog.txt")
-    
-    # 에러 로그 파일 생성
-    Path(base_output_dir).mkdir(parents=True, exist_ok=True)
-    with open(error_log_path, "w") as error_log:
-        error_log.write("Error Log\n")
-        error_log.write("==========\n")
-
-    # 모델 로드
-    print("모델 로딩 중...")
+    # Load model for this GPU
     model = AutoDetectionModel.from_pretrained(
         model_type="mmdet",
         model_path=args.ckpt,
@@ -151,21 +126,16 @@ if __name__ == "__main__":
         device="cuda",
     )
 
-    # 모든 .tif 파일 경로 수집
-    print("파일 목록 수집 중...")
-    tif_files = get_all_tif_files(args.input_dir)
-    total_files = len(tif_files)
-    print(f"총 {total_files}개의 파일을 처리합니다.")
-
     processed_files = 0
     error_files = 0
+    results = []
 
-    for img_path in tqdm(tif_files):
+    for img_path in tqdm(file_batch, desc=f"GPU {gpu_id}"):
         try:
-            # 출력 디렉토리 생성
-            output_pred_dir, output_vis_dir = create_output_dirs(img_path, args.out_dir)
+            # Create output directories
+            output_pred_dir, output_vis_dir = create_output_dirs(img_path, args.out_dir, args.input_dir)
             
-            # 예측 수행
+            # Perform prediction
             result = get_sliced_prediction(
                 img_path,
                 model,
@@ -176,6 +146,7 @@ if __name__ == "__main__":
                 postprocess_match_threshold=0.5,
                 perform_standard_pred=False,
             )
+
             preds = [pred.to_coco_prediction() for pred in result.object_prediction_list]
             fn = os.path.basename(img_path)
             preds_dict = {
@@ -207,44 +178,108 @@ if __name__ == "__main__":
                 except Exception as e:
                     print(f"Error occurred while calculating polygon: {str(e)}")
                     preds_dict["masks_gis"] = None
-            
-            # 각 항목의 갯수 출력
-            print(f"File: {fn}")
-            print(f"  bboxes: {len(preds_dict.get('bboxes', []))}")
-            print(f"  centers_gis: {len(preds_dict.get('centers_gis', []))}")
-            print(f"  bbox_lat_lon: {len(preds_dict.get('bbox_lat_lon', []))}")
-            print(f"  polygon: {len([mask['polygon'] for mask in preds_dict.get('masks', []) if 'polygon' in mask])}")
-            print(f"  mask_gis: {len(preds_dict.get('masks_gis', []))}")
 
-            # 예측 결과 저장
+            # Save prediction results
             output_path = os.path.join(output_pred_dir, fn.replace(Path(fn).suffix, ".json"))
             with open(output_path, "w") as f:
                 json.dump(preds_dict, f, indent=4, ensure_ascii=False)
 
-            # 시각화 결과 저장 (옵션)
+            # Export visualization if requested
             if args.export_vis:
                 result.export_visuals(export_dir=output_vis_dir, file_name=Path(fn).stem, rect_th=1, hide_conf=False, hide_labels=False)
             
             processed_files += 1
+            results.append({
+                'filename': fn,
+                'bboxes': len(preds_dict.get('bboxes', [])),
+                'centers_gis': len(preds_dict.get('centers_gis', [])),
+                'bbox_lat_lon': len(preds_dict.get('bbox_lat_lon', [])),
+                'polygon': len([mask['polygon'] for mask in preds_dict.get('masks', []) if 'polygon' in mask]),
+                'mask_gis': len(preds_dict.get('masks_gis', []))
+            })
             
         except Exception as e:
             error_files += 1
-            # 에러 발생 시 로그에 기록
             with open(error_log_path, "a") as error_log:
                 error_log.write(f"Error processing file: {img_path}\n")
                 error_log.write(f"Error message: {str(e)}\n\n")
 
-    # 종료 시간 기록 및 총 수행시간 계산
+    return processed_files, error_files, results
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, required=True)
+    parser.add_argument("--ckpt", type=str, required=True)
+    parser.add_argument("--input-dir", type=str, required=True)
+    parser.add_argument("--out-dir", type=str, default="out_dirs")
+    parser.add_argument("--score-thr", type=float, default=0.3)
+    parser.add_argument("--export-vis", action="store_true", default=False)
+    parser.add_argument("--center-bbox", action="store_true", default=False)
+    parser.add_argument("--gis", action="store_true", default=False)
+    parser.add_argument("--polygon", action="store_true", default=False)
+    parser.add_argument("--num-gpus", type=int, default=2, help="Number of GPUs to use")
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    # Record start time
+    start_time = time.time()
+    
+    # Parse arguments
+    args = parse_args()
+
+    # Create base output directory
+    base_input_dir = os.path.basename(os.path.normpath(args.input_dir))
+    base_output_dir = os.path.join(args.out_dir, base_input_dir)
+    error_log_path = os.path.join(base_output_dir, "errorlog.txt")
+    
+    # Create error log file
+    Path(base_output_dir).mkdir(parents=True, exist_ok=True)
+    with open(error_log_path, "w") as error_log:
+        error_log.write("Error Log\n==========\n")
+
+    # Get all .tif files
+    print("Collecting file list...")
+    tif_files = get_all_tif_files(args.input_dir)
+    total_files = len(tif_files)
+    print(f"Found {total_files} files to process")
+
+    # Split files among GPUs
+    num_gpus = min(args.num_gpus, torch.cuda.device_count())
+    file_batches = np.array_split(tif_files, num_gpus)
+    
+    # Initialize multiprocessing
+    mp.set_start_method('spawn')
+    processes = []
+    
+    # Start processes for each GPU
+    for gpu_id in range(num_gpus):
+        p = mp.Process(
+            target=process_batch,
+            args=(gpu_id, file_batches[gpu_id], args, error_log_path)
+        )
+        p.start()
+        processes.append(p)
+
+    # Wait for all processes to complete
+    for p in processes:
+        p.join()
+
+    # # Collect results from queue
+    # total_processed = 0
+    # total_errors = 0
+    # gpu_results = []
+
+    # Calculate total time
     end_time = time.time()
     total_time = end_time - start_time
     
-    # 결과 출력
+    # Print summary
     print("\n" + "="*50)
-    print("처리 완료 요약")
+    print("Processing Summary")
     print("="*50)
-    print(f"총 파일 수: {total_files}")
-    print(f"성공적으로 처리된 파일: {processed_files}")
-    print(f"에러 발생 파일: {error_files}")
-    print(f"총 소요 시간: {str(timedelta(seconds=int(total_time)))}")
-    print(f"파일당 평균 처리 시간: {total_time/total_files:.2f}초")
+    print(f"Total files: {total_files}")
+    print(f"Number of GPUs used: {num_gpus}")
+    print(f"Total processing time: {str(timedelta(seconds=int(total_time)))}")
+    print(f"Average processing time per file: {total_time/total_files:.2f} seconds")
     print("="*50)
+
