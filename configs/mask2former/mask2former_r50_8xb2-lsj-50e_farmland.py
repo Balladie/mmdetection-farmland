@@ -91,12 +91,70 @@ val_dataloader = dict(
         pipeline=test_pipeline))
 test_dataloader = val_dataloader
 
-val_evaluator = dict(
-    _delete_=True,
+# 기존 config 파일의 val_evaluator를 수정
+val_evaluator = [dict(
     type='CocoMetric',
     ann_file=data_root + 'annotations/instances_val.json',
     metric=['segm'],
-    iou_thrs=[0.05],
+    classwise=True,
+    # iou_thrs=[0.05, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75],  # IoU 임계값 범위 확장
+    iou_thrs=[0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7],  # IoU 임계값 범위 확장
+    outfile_prefix='./work_dirs/mask2former/test_results',
+    collect_device='cpu',
     format_only=False,
-    backend_args={{_base_.backend_args}})
+    backend_args={{_base_.backend_args}},
+    metric_items=[
+        'mAP', 'mAP_50', 'mAP_75',  # 기본 mAP
+        'mAP_s', 'mAP_m', 'mAP_l',  # 크기별 mAP
+        'AR@100', 'AR@300', 'AR@1000',   # maxDets에 따른 AR
+        'AR_s@1000', 'AR_m@1000', 'AR_l@1000'  # 크기별 AR (maxDets=1000)
+    ])]  # 기본 메트릭으로 단순화
+
 test_evaluator = val_evaluator
+
+# 가장 좋은 성능이 나왔던 evaluator - 성능인증시 사용되었던 코드
+# val_evaluator = dict(
+#     _delete_=True,
+#     type='CocoMetric',
+#     ann_file=data_root + 'annotations/instances_val.json',
+#     metric=['segm'],
+#     iou_thrs=[0.05],
+#     format_only=False,
+#     backend_args={{_base_.backend_args}})
+# test_evaluator = val_evaluator
+
+################################### JS
+# 기존 config 파일에 추가
+# default_hooks = dict(
+#     timer=dict(type='IterTimerHook'),
+#     logger=dict(
+#         type='LoggerHook',
+#         interval=50,
+#         hooks=[
+#             dict(type='TextLoggerHook'),
+#             dict(type='TensorboardLoggerHook'),
+#             dict(type='WandbLoggerHook',
+#                  init_kwargs={'project': 'farmland-segmentation'},
+#                  interval=50)
+#         ])
+# )
+################################### JS
+# 기존 config 파일에 추가
+default_hooks = dict(
+    timer=dict(type='IterTimerHook'),
+    logger=dict(type='LoggerHook', interval=50),  # 기본 로거만 사용
+    param_scheduler=dict(type='ParamSchedulerHook'),
+    checkpoint=dict(type='CheckpointHook', interval=1),
+    sampler_seed=dict(type='DistSamplerSeedHook'),
+    visualization=dict(type='DetVisualizationHook'))
+
+# TensorBoard만 사용하도록 설정
+vis_backends = [
+    dict(type='LocalVisBackend'),
+    dict(type='TensorboardVisBackend')
+]
+
+visualizer = dict(
+    type='DetLocalVisualizer',
+    vis_backends=vis_backends,
+    name='visualizer')
