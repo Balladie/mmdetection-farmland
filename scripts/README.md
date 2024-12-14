@@ -178,6 +178,34 @@ train_dataloader = dict(
 ...
 ```
 
+만약 class 수가 바뀌는 경우, 다음과 같이 config의 class 수를 변경해줘야 합니다.
+
+```python
+...
+num_things_classes = 12     # 모델의 output class 수
+...
+```
+
+또한 `mmdet/datasets/farmland.py`의 데이터셋 클래스에 정의된 class 정의와 색상을 수정해줘야 합니다.
+
+```python
+...
+@DATASETS.register_module()
+class FarmlandDataset(BaseDetDataset):
+    """Dataset for COCO."""
+
+    METAINFO = {
+        'classes':
+        ('농축산업용 시설', '일반시설(건축물)', '비닐하우스', '축사', '태양광-노지형', '태양광-시설형(축사)', '태양광-시설형(농축산업용 시설)', '태양광-시설형(기타시설)', '농막', '임야화농지', '도로', '주차장'),     # class 이름 정의
+        # palette is a list of color tuples, which is used for visualization.
+        'palette':
+        [(220, 20, 60), (119, 11, 32), (0, 0, 142), (0, 0, 230), (106, 0, 228),
+         (0, 60, 100), (0, 80, 100), (0, 0, 70), (0, 0, 192), (250, 170, 30),
+         (100, 170, 30), (220, 220, 0)]     # class 색상 정의
+    }
+...
+```
+
 준비가 완료되면 다음과 같이 multi-GPU 학습이 가능합니다.
 
 ```bash
