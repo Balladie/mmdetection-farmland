@@ -137,3 +137,49 @@ input path에 있는 모든 sub directory 별 파일 갯수를 확인하여 oupu
 ```
 python scripts/resultchk.py --input-dir [input 파일 경로] --output-dir [output 파일 경로]
 ```
+
+## 학습
+
+데이터셋을 COCO format으로 다음과 같이 준비합니다. 
+
+```
+IMG_DIR
+├── annotations
+    ├── instances_train.json
+    ├── instances_val.json
+├── KG-KR-301
+├── krcc
+...
+```
+
+다음으로, 사용할 mmdetection config 파일에 `IMG_DIR` 경로를 반영해 줍니다.
+
+예를 들어, 학습에 `configs/mask2former/mask2former_swin-t-p4-w7-224_8xb2-lsj-50e_farmland.py` config를 사용할 경우, 해당 파일에는 데이터 경로가 없으나 아래와 같이 `__base__` config를 포함하고 있습니다.
+
+```python
+_base_ = ['./mask2former_r50_8xb2-lsj-50e_farmland.py']
+...
+```
+
+위 파일인 `configs/mask2former/mask2former_r50_8xb2-lsj-50e_farmland.py`로 가면 다음과 같이 데이터셋 관련 변수들이 있습니다. 
+
+여기에서 `data_root`를 위 `IMG_DIR` 경로로 설정해 줍니다.
+
+```python
+...
+dataset_type = 'FarmlandDataset'
+data_root = 'data/farmland/'    # IMG_DIR에 해당하는, 데이터셋 최상위 폴더
+
+train_dataloader = dict(
+    batch_size=8,
+    dataset=dict(
+        type=dataset_type,
+        ann_file='annotations/instances_train.json',
+...
+```
+
+준비가 완료되면 다음과 같이 multi-GPU 학습이 가능합니다.
+
+```bash
+bash tools/dist_train.sh configs/mask2former/mask2former_swin-t-p4-w7-224_8xb2-lsj-50e_farmland.py [NUM_GPUS]
+```
