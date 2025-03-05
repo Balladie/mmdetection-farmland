@@ -95,6 +95,29 @@ def mask2polygon(maskedArr): # https://github.com/hazirbas/coco-json-converter/b
     segmentation = []
     net_area = 0.0
     cnt_valid = 0
+
+    # for contour in contours:
+    #     if contour.size >= 6:  # Valid polygons have >= 6 coordinates (3 points)
+    #         # Apply Douglas-Peucker algorithm to reduce number of points
+    #         epsilon = 0.005 * cv2.arcLength(contour, True)  # 0.5% of perimeter
+    #         approx_contour = cv2.approxPolyDP(contour, epsilon, True)
+            
+    #         # Additional simplification for very complex polygons
+    #         if len(approx_contour) > 100:
+    #             epsilon = 0.01 * cv2.arcLength(contour, True)  # Increase epsilon for more aggressive simplification
+    #             approx_contour = cv2.approxPolyDP(contour, epsilon, True)
+            
+    #         if len(approx_contour) >= 3:  # Ensure we still have a valid polygon
+    #             segmentation.append(approx_contour.flatten().tolist())
+    #             net_area += cv2.contourArea(approx_contour, oriented=True)
+    #             cnt_valid += 1
+    
+    # if cnt_valid == 0:
+    #     print("Invalid mask, returning empty polygon")
+    #     return [], 0.0
+        
+    # return segmentation, abs(net_area)
+
     for i, contour in enumerate(contours):
         # Valid polygons have >= 6 coordinates (3 points)
         if contour.size >= 6:

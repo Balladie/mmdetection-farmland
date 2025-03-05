@@ -8,6 +8,10 @@ from tqdm import tqdm
 import time
 from datetime import timedelta
 
+import torch.multiprocessing as mp
+from typing import List, Dict
+import numpy as np
+
 from sahi import AutoDetectionModel
 from sahi.predict import get_sliced_prediction
 
@@ -186,7 +190,7 @@ def process_batch(gpu_id: int, file_batch: List[str], args: Dict, error_log_path
 
             # Export visualization if requested
             if args.export_vis:
-                result.export_visuals(export_dir=output_vis_dir, file_name=Path(fn).stem, rect_th=1, hide_conf=False, hide_labels=False)
+                result.export_visuals(export_dir=output_vis_dir, file_name=Path(fn).stem, rect_th=1, hide_conf=True, hide_labels=True)
             
             processed_files += 1
             results.append({
