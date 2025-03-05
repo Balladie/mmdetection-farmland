@@ -26,11 +26,3 @@ if __name__ == "__main__":
     for fn in tqdm(os.listdir(args.input_dir)):
         img_path = os.path.join(args.input_dir, fn)
         inferencer(img_path, out_dir=args.out_dir, no_save_pred=False)
-    #     img_fns.append(fn)
-
-    # pred_dir = os.path.join(args.out_dir, args.pred_out_dir)
-
-    # for pred_fn, img_fn in zip(sorted(os.listdir(pred_dir)), img_fns):
-    #     src_path = os.path.join(pred_dir, pred_fn)
-    #     tgt_path = os.path.join(pred_dir, img_fn)
-    #     shutil.move(src_path, tgt_path)
